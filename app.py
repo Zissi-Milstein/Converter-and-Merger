@@ -5,10 +5,12 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
+from docx import Document
 import os
 
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
     df = pd.read_excel(excel_path)
+    df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
     df = df.fillna('')
     
     if orientation == 'landscape':
@@ -50,17 +52,49 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
     elements.append(table)
     pdf.build(elements)
 
-st.title("Excel to PDF Converter")
+def docx_to_text(docx_path):
+    doc = Document(docx_path)
+    return "\n".join([para.text for para in doc.paragraphs])
 
-uploaded_file = st.file_uploader("Choose an Excel file", type="xlsx")
+def text_to_pdf(text, pdf_path, orientation='portrait'):
+    if orientation == 'landscape':
+        page_size = landscape(letter)
+    elif orientation == 'portrait':
+        page_size = portrait(letter)
+    else:
+        raise ValueError("Orientation must be 'landscape' or 'portrait'")
+
+    pdf = SimpleDocTemplate(pdf_path, pagesize=page_size,
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    styles = getSampleStyleSheet()
+    styleN = styles['Normal']
+
+    paragraphs = [Paragraph(par, styleN) for par in text.split("\n")]
+    pdf.build(paragraphs)
+
+st.title("Document to PDF Converter")
+
+uploaded_file = st.file_uploader("Choose a file", type=["xlsx", "docx"])
 orientation = st.radio("Choose orientation", ('landscape', 'portrait'))
 
 if uploaded_file is not None:
-    with open(uploaded_file.name, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    input_path = uploaded_file.name
-    output_path = "output.pdf"
-    excel_to_pdf(input_path, output_path, orientation)
+    file_extension = os.path.splitext(uploaded_file.name)[1]
+    if file_extension == ".xlsx":
+        with open(uploaded_file.name, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        input_path = uploaded_file.name
+        output_path = "output.pdf"
+        excel_to_pdf(input_path, output_path, orientation)
+    elif file_extension == ".docx":
+        with open(uploaded_file.name, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        input_path = uploaded_file.name
+        output_path = "output.pdf"
+        text = docx_to_text(input_path)
+        text_to_pdf(text, output_path, orientation)
+    else:
+        st.error("Unsupported file type!")
 
     with open(output_path, "rb") as pdf_file:
         pdf_data = pdf_file.read()
