@@ -122,3 +122,13 @@ if uploaded_files:
         elif file_extension == ".pdf":
             with open(uploaded_file.name, "wb") as f:
                 f.write(uploaded_file.getbuffer())
+            pdf_paths.append(uploaded_file.name)
+
+    if pdf_paths:
+        merged_output_path = "merged_output.pdf"
+        merge_pdfs(pdf_paths, merged_output_path)
+        with open(merged_output_path, "rb") as pdf_file:
+            pdf_data = pdf_file.read()
+
+        st.success("PDFs merged successfully!")
+        st.download_button(label="Download Merged PDF", data=pdf_data, file_name=merged_output_path, mime="application/pdf")
