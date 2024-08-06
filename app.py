@@ -133,7 +133,7 @@ def merge_pdfs(pdf_paths, output_path):
     merger.write(output_path)
     merger.close()
 
-st.title("Document to PDF Converter and Merger")
+st.title("PDF Converter and Merger 👷🏻‍♀️")
 
 uploaded_files = st.file_uploader("Choose files", type=["xlsx", "docx", "pdf"], accept_multiple_files=True)
 orientation = st.radio("Choose orientation for Excel and Word files", ('landscape', 'portrait'))
