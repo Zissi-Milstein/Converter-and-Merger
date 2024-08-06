@@ -1,18 +1,41 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from PIL import Image
 from reportlab.lib.pagesizes import letter, landscape, portrait
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
-from PyPDF2 import PdfMerger
 import os
-from excel2pdf import convert
+from PyPDF2 import PdfMerger
 
-def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
-    # Convert Excel to PDF using excel2pdf
-    convert(excel_path, pdf_path, orientation=orientation)
+def excel_to_image(excel_path, image_path):
+    df = pd.read_excel(excel_path, engine='openpyxl')
+    df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
+    df = df.fillna('')
+    
+    fig, ax = plt.subplots(figsize=(12, len(df) * 0.3))  # Adjust size according to the data length
+    ax.axis('off')
+    
+    # Create a table
+    table = plt.table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
+    
+    # Style the table
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.2, 1.2)
+    
+    plt.savefig(image_path, bbox_inches='tight', pad_inches=0.1)
+    plt.close()
+
+def image_to_pdf(image_path, pdf_path, orientation='portrait'):
+    pdf_pages = PdfPages(pdf_path)
+    images = [Image.open(image_path)]
+    pdf_pages.savefig(images[0])
+    pdf_pages.close()
 
 def docx_to_text(docx_path):
     doc = Document(docx_path)
@@ -57,7 +80,10 @@ if uploaded_files:
             input_path = uploaded_file.name
             output_path = f"{os.path.splitext(uploaded_file.name)[0]}.pdf"
             if file_extension == ".xlsx":
-                excel_to_pdf(input_path, output_path, orientation)
+                image_path = f"{os.path.splitext(uploaded_file.name)[0]}.png"
+                excel_to_image(input_path, image_path)
+                image_to_pdf(image_path, output_path, orientation)
+                os.remove(image_path)
             elif file_extension == ".docx":
                 text = docx_to_text(input_path)
                 text_to_pdf(text, output_path, orientation)
