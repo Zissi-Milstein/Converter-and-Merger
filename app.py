@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from openpyxl import load_workbook
 from reportlab.lib.pagesizes import letter, landscape, portrait
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
@@ -9,11 +10,22 @@ from docx import Document
 import os
 from PyPDF2 import PdfMerger
 
+def get_excel_data_with_formatting(excel_path):
+    wb = load_workbook(excel_path)
+    ws = wb.active
+    data = []
+    for row in ws.iter_rows(values_only=False):
+        data_row = []
+        for cell in row:
+            if cell.is_date:
+                data_row.append(cell.value.strftime('%m/%d/%Y'))
+            else:
+                data_row.append(cell.value)
+        data.append(data_row)
+    return data, [cell.value for cell in ws[1]]  # Return data and headers separately
+
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
-    df = pd.read_excel(excel_path)
-    df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
-    df = df.fillna('')
-    
+    data, headers = get_excel_data_with_formatting(excel_path)
     if orientation == 'landscape':
         page_size = landscape(letter)
     elif orientation == 'portrait':
@@ -23,7 +35,7 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
 
     left_margin = right_margin = top_margin = bottom_margin = 0.5 * inch
     effective_page_width = page_size[0] - left_margin - right_margin
-    num_columns = len(df.columns)
+    num_columns = len(headers)
     column_width = effective_page_width / num_columns
 
     pdf = SimpleDocTemplate(pdf_path, pagesize=page_size,
@@ -31,7 +43,7 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
                             topMargin=top_margin, bottomMargin=bottom_margin)
     elements = []
 
-    data = [df.columns.to_list()] + df.values.tolist()
+    data = [headers] + data
     styles = getSampleStyleSheet()
     styleN = styles['Normal']
     data = [[Paragraph(str(cell), styleN) for cell in row] for row in data]
