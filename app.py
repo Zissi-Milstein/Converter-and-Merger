@@ -1,41 +1,81 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-from PIL import Image
+import matplotlib.image as mpimg
 from reportlab.lib.pagesizes import letter, landscape, portrait
-from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
-import os
 from PyPDF2 import PdfMerger
+from PIL import Image
+import os
 
-def excel_to_image(excel_path, image_path):
-    df = pd.read_excel(excel_path, engine='openpyxl')
+def image_to_pdf(image_path, pdf_path, orientation='portrait'):
+    # Verify if the image file is valid
+    try:
+        img = Image.open(image_path)
+        img.verify()
+    except Exception as e:
+        st.error(f"Error opening image file: {e}")
+        return
+
+    if orientation == 'landscape':
+        figsize = (11.69, 8.27)  # A4 landscape size
+    else:
+        figsize = (8.27, 11.69)  # A4 portrait size
+
+    fig, ax = plt.subplots(figsize=figsize)
+    img = mpimg.imread(image_path)
+    ax.imshow(img)
+    ax.axis('off')
+    plt.savefig(pdf_path, format='pdf', bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
+
+def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
+    df = pd.read_excel(excel_path)
     df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
     df = df.fillna('')
     
-    fig, ax = plt.subplots(figsize=(12, len(df) * 0.3))  # Adjust size according to the data length
-    ax.axis('off')
-    
-    # Create a table
-    table = plt.table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
-    
-    # Style the table
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1.2, 1.2)
-    
-    plt.savefig(image_path, bbox_inches='tight', pad_inches=0.1)
-    plt.close()
+    if orientation == 'landscape':
+        page_size = landscape(letter)
+    elif orientation == 'portrait':
+        page_size = portrait(letter)
+    else:
+        raise ValueError("Orientation must be 'landscape' or 'portrait'")
 
-def image_to_pdf(image_path, pdf_path, orientation='portrait'):
-    pdf_pages = PdfPages(pdf_path)
-    images = [Image.open(image_path)]
-    pdf_pages.savefig(images[0])
-    pdf_pages.close()
+    left_margin = right_margin = top_margin = bottom_margin = 0.5 * inch
+    effective_page_width = page_size[0] - left_margin - right_margin
+    num_columns = len(df.columns)
+    column_width = effective_page_width / num_columns
+
+    pdf = SimpleDocTemplate(pdf_path, pagesize=page_size,
+                            leftMargin=left_margin, rightMargin=right_margin,
+                            topMargin=top_margin, bottomMargin=bottom_margin)
+    elements = []
+
+    data = [df.columns.to_list()] + df.values.tolist()
+    styles = getSampleStyleSheet()
+    styleN = styles['Normal']
+    data = [[Paragraph(str(cell), styleN) for cell in row] for row in data]
+
+    table = Table(data, colWidths=[column_width] * num_columns)
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10)
+    ])
+    table.setStyle(style)
+    elements.append(table)
+    pdf.build(elements)
 
 def docx_to_text(docx_path):
     doc = Document(docx_path)
@@ -80,10 +120,7 @@ if uploaded_files:
             input_path = uploaded_file.name
             output_path = f"{os.path.splitext(uploaded_file.name)[0]}.pdf"
             if file_extension == ".xlsx":
-                image_path = f"{os.path.splitext(uploaded_file.name)[0]}.png"
-                excel_to_image(input_path, image_path)
-                image_to_pdf(image_path, output_path, orientation)
-                os.remove(image_path)
+                excel_to_pdf(input_path, output_path, orientation)
             elif file_extension == ".docx":
                 text = docx_to_text(input_path)
                 text_to_pdf(text, output_path, orientation)
