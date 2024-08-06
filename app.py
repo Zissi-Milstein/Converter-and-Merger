@@ -10,6 +10,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
 from PyPDF2 import PdfMerger
 from PIL import Image
+import openpyxl
 import os
 
 def image_to_pdf(image_path, pdf_path, orientation='portrait'):
@@ -34,10 +35,18 @@ def image_to_pdf(image_path, pdf_path, orientation='portrait'):
     plt.close(fig)
 
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
-    df = pd.read_excel(excel_path)
-    df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
-    df = df.fillna('')
+    # Load workbook and get the active sheet
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    sheet = wb.active
     
+    # Get the data from the sheet
+    data = list(sheet.values)
+    
+    # Extract header and rows
+    header = data[0]
+    rows = data[1:]
+
+    # Determine page size
     if orientation == 'landscape':
         page_size = landscape(letter)
     elif orientation == 'portrait':
@@ -45,25 +54,40 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
     else:
         raise ValueError("Orientation must be 'landscape' or 'portrait'")
 
-    left_margin = right_margin = top_margin = bottom_margin = 0.5 * inch
-    effective_page_width = page_size[0] - left_margin - right_margin
-    num_columns = len(df.columns)
-    column_width = effective_page_width / num_columns
-
+    # Create a PDF document
     pdf = SimpleDocTemplate(pdf_path, pagesize=page_size,
-                            leftMargin=left_margin, rightMargin=right_margin,
-                            topMargin=top_margin, bottomMargin=bottom_margin)
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch)
     elements = []
 
-    data = [df.columns.to_list()] + df.values.tolist()
+    # Prepare data for PDF
+    formatted_data = [header] + rows
     styles = getSampleStyleSheet()
     styleN = styles['Normal']
-    data = [[Paragraph(str(cell), styleN) for cell in row] for row in data]
+    
+    # Convert data to Paragraphs with formatting
+    data = []
+    for row in formatted_data:
+        formatted_row = []
+        for cell in row:
+            if isinstance(cell, (int, float)):
+                formatted_row.append(Paragraph(f"{cell:,.2f}", styleN))  # Format numbers with commas and two decimal places
+            elif isinstance(cell, str):
+                # Handle date and currency formatting here if needed
+                formatted_row.append(Paragraph(cell, styleN))
+            else:
+                formatted_row.append(Paragraph(str(cell), styleN))
+        data.append(formatted_row)
 
+    # Create the table
+    num_columns = len(header)
+    column_width = (page_size[0] - 1.5 * inch) / num_columns
     table = Table(data, colWidths=[column_width] * num_columns)
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+    
+    # Define table style
+    table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 12),
@@ -73,8 +97,10 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 1), (-1, -1), 10)
     ])
-    table.setStyle(style)
+    table.setStyle(table_style)
     elements.append(table)
+    
+    # Build PDF
     pdf.build(elements)
 
 def docx_to_text(docx_path):
