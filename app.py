@@ -70,7 +70,9 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
     for row in formatted_data:
         formatted_row = []
         for cell in row:
-            if isinstance(cell, (int, float)):
+            if cell is None:
+                formatted_row.append(Paragraph("", styleN))  # Keep cell blank
+            elif isinstance(cell, (int, float)):
                 formatted_row.append(Paragraph(f"{cell:,.2f}", styleN))  # Format numbers with commas and two decimal places
             elif isinstance(cell, str):
                 # Handle date and currency formatting here if needed
