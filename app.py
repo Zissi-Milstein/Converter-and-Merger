@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from openpyxl import load_workbook
 from reportlab.lib.pagesizes import letter, landscape, portrait
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
 from reportlab.lib import colors
@@ -10,27 +9,11 @@ from docx import Document
 import os
 from PyPDF2 import PdfMerger
 
-def get_excel_data_with_formatting(excel_path):
-    wb = load_workbook(excel_path, data_only=True)
-    ws = wb.active
-    data = []
-    headers = []
-    for row_idx, row in enumerate(ws.iter_rows(values_only=False)):
-        data_row = []
-        for cell in row:
-            if cell.is_date:
-                data_row.append(cell.value.strftime('%m/%d/%Y'))
-            else:
-                if row_idx == 0:
-                    headers.append(cell.value if cell.value else "")
-                else:
-                    data_row.append(cell.value if cell.value else "")
-        if row_idx != 0:
-            data.append(data_row)
-    return data, headers
-
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
-    data, headers = get_excel_data_with_formatting(excel_path)
+    df = pd.read_excel(excel_path)
+    df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
+    df = df.fillna('')
+    
     if orientation == 'landscape':
         page_size = landscape(letter)
     elif orientation == 'portrait':
@@ -40,7 +23,7 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
 
     left_margin = right_margin = top_margin = bottom_margin = 0.5 * inch
     effective_page_width = page_size[0] - left_margin - right_margin
-    num_columns = len(headers)
+    num_columns = len(df.columns)
     column_width = effective_page_width / num_columns
 
     pdf = SimpleDocTemplate(pdf_path, pagesize=page_size,
@@ -48,7 +31,7 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
                             topMargin=top_margin, bottomMargin=bottom_margin)
     elements = []
 
-    data.insert(0, headers)  # Insert headers at the beginning of the data
+    data = [df.columns.to_list()] + df.values.tolist()
     styles = getSampleStyleSheet()
     styleN = styles['Normal']
     data = [[Paragraph(str(cell), styleN) for cell in row] for row in data]
@@ -64,8 +47,7 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('WORDWRAP', (0, 0), (-1, -1), True)
+        ('FONTSIZE', (0, 1), (-1, -1), 10)
     ])
     table.setStyle(style)
     elements.append(table)
