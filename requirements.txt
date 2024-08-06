@@ -4,3 +4,4 @@ openpyxl
 reportlab
 python-docx
 PyPDF2
+xlsx2pdf
