@@ -7,13 +7,12 @@ from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
 from PyPDF2 import PdfMerger
-import openpyxl
 import os
-from xlsx2pdf import convert
+from excel2pdf import convert
 
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
-    # Convert Excel to PDF using xlsx2pdf
-    convert(excel_path, pdf_path)
+    # Convert Excel to PDF using excel2pdf
+    convert(excel_path, pdf_path, orientation=orientation)
 
 def docx_to_text(docx_path):
     doc = Document(docx_path)
