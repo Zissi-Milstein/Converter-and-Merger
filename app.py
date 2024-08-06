@@ -6,52 +6,14 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet
 from docx import Document
-import os
 from PyPDF2 import PdfMerger
+import openpyxl
+import os
+from xlsx2pdf import convert
 
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
-    df = pd.read_excel(excel_path)
-    df.columns = [col if 'Unnamed' not in col else '' for col in df.columns]
-    df = df.fillna('')
-    
-    if orientation == 'landscape':
-        page_size = landscape(letter)
-    elif orientation == 'portrait':
-        page_size = portrait(letter)
-    else:
-        raise ValueError("Orientation must be 'landscape' or 'portrait'")
-
-    left_margin = right_margin = top_margin = bottom_margin = 0.5 * inch
-    effective_page_width = page_size[0] - left_margin - right_margin
-    num_columns = len(df.columns)
-    column_width = effective_page_width / num_columns
-
-    pdf = SimpleDocTemplate(pdf_path, pagesize=page_size,
-                            leftMargin=left_margin, rightMargin=right_margin,
-                            topMargin=top_margin, bottomMargin=bottom_margin)
-    elements = []
-
-    data = [df.columns.to_list()] + df.values.tolist()
-    styles = getSampleStyleSheet()
-    styleN = styles['Normal']
-    data = [[Paragraph(str(cell), styleN) for cell in row] for row in data]
-
-    table = Table(data, colWidths=[column_width] * num_columns)
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10)
-    ])
-    table.setStyle(style)
-    elements.append(table)
-    pdf.build(elements)
+    # Convert Excel to PDF using xlsx2pdf
+    convert(excel_path, pdf_path)
 
 def docx_to_text(docx_path):
     doc = Document(docx_path)
