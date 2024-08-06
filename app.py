@@ -11,18 +11,23 @@ import os
 from PyPDF2 import PdfMerger
 
 def get_excel_data_with_formatting(excel_path):
-    wb = load_workbook(excel_path)
+    wb = load_workbook(excel_path, data_only=True)
     ws = wb.active
     data = []
-    for row in ws.iter_rows(values_only=False):
+    headers = []
+    for row_idx, row in enumerate(ws.iter_rows(values_only=False)):
         data_row = []
         for cell in row:
             if cell.is_date:
                 data_row.append(cell.value.strftime('%m/%d/%Y'))
             else:
-                data_row.append(cell.value)
-        data.append(data_row)
-    return data, [cell.value for cell in ws[1]]  # Return data and headers separately
+                if row_idx == 0:
+                    headers.append(cell.value if cell.value else "")
+                else:
+                    data_row.append(cell.value if cell.value else "")
+        if row_idx != 0:
+            data.append(data_row)
+    return data, headers
 
 def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
     data, headers = get_excel_data_with_formatting(excel_path)
@@ -43,7 +48,7 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
                             topMargin=top_margin, bottomMargin=bottom_margin)
     elements = []
 
-    data = [headers] + data
+    data.insert(0, headers)  # Insert headers at the beginning of the data
     styles = getSampleStyleSheet()
     styleN = styles['Normal']
     data = [[Paragraph(str(cell), styleN) for cell in row] for row in data]
@@ -59,7 +64,8 @@ def excel_to_pdf(excel_path, pdf_path, orientation='landscape'):
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10)
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('WORDWRAP', (0, 0), (-1, -1), True)
     ])
     table.setStyle(style)
     elements.append(table)
@@ -116,13 +122,3 @@ if uploaded_files:
         elif file_extension == ".pdf":
             with open(uploaded_file.name, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-            pdf_paths.append(uploaded_file.name)
-
-    if pdf_paths:
-        merged_output_path = "merged_output.pdf"
-        merge_pdfs(pdf_paths, merged_output_path)
-        with open(merged_output_path, "rb") as pdf_file:
-            pdf_data = pdf_file.read()
-
-        st.success("PDFs merged successfully!")
-        st.download_button(label="Download Merged PDF", data=pdf_data, file_name=merged_output_path, mime="application/pdf")
